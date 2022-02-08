@@ -72,9 +72,9 @@ public class InterfaceRepositoryToJson {
 
     }
 
-    private JSONObject parseMagnitudes(Contained[] fullDescription, String interfaceName) {
+    private JSONObject parseMagnitudes(Contained[] attributes, String interfaceName) {
         JSONObject monitors = new JSONObject();
-        for (Contained c : fullDescription) {
+        for (Contained c : attributes) {
             AttributeDescription attDescription = AttributeDescriptionHelper.extract(c.describe().value);
             try {
                 // Magnitudes in IDL are specified as READONLY
@@ -106,7 +106,7 @@ public class InterfaceRepositoryToJson {
 
                 monitors.put(attDescription.name, monitorConfig);
             } catch (Exception e) {
-                System.out.println("RIP");
+                System.out.println("\t\tError while processing attribute " + attDescription.name);
                 e.printStackTrace();
             }
         }
@@ -162,6 +162,8 @@ public class InterfaceRepositoryToJson {
             CORBAServices.init(ns, ir);
 
             new InterfaceRepositoryToJson().start();
+
+            System.exit(0);
 
         }catch(NotAvailable ex){
             Output.error("Cannot initialiazed CORBA Services. Make sure environment" +

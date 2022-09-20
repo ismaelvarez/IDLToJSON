@@ -3,8 +3,11 @@ package gtc.DSL.CK.IR;
 import gtc.DSL.DAF.CORBAServices;
 import gtc.DSL.DAF.NotAvailable;
 import gtc.DSL.Debug.Output;
-import net.minidev.json.JSONObject;
-import org.omg.CORBA.*;
+import org.json.simple.JSONObject;
+import org.omg.CORBA.DefinitionKind;
+import org.omg.CORBA.InterfaceDefPackage.FullInterfaceDescription;
+import org.omg.CORBA.TCKind;
+import org.omg.CORBA.TypeCode;
 import org.omg.CORBA.TypeCodePackage.BadKind;
 
 import java.io.IOException;
@@ -60,11 +63,10 @@ public class InterfaceRepositoryToJson {
         instance.put("instance", interfaceName);
         instance.put("className", interfaceName);
         try {
-            instance.put("monitors", parseMagnitudes( interfaceDef.contents(DefinitionKind.dk_Attribute, false), interfaceName));
+            instance.put("monitors", parseMagnitudes(interfaceDef.describe_interface(), interfaceName));
         } catch (Exception e) {
             System.out.println("\t\tCORBA Exception while getting the interface description of "
              + interfaceDef.name());
-            e.printStackTrace();
             instance.put("monitors", new JSONObject());
         }
 
@@ -72,17 +74,16 @@ public class InterfaceRepositoryToJson {
 
     }
 
-    private JSONObject parseMagnitudes(Contained[] attributes, String interfaceName) {
+    private JSONObject parseMagnitudes(FullInterfaceDescription fullDescription, String interfaceName) {
         JSONObject monitors = new JSONObject();
-        for (Contained c : attributes) {
-            AttributeDescription attDescription = AttributeDescriptionHelper.extract(c.describe().value);
+        for (AttributeDescription attDescription: fullDescription.attributes) {
             try {
                 // Magnitudes in IDL are specified as READONLY
                 if (attDescription.mode != AttributeMode.ATTR_READONLY) continue;
 
                 if (ATTRIBUTES_TO_EXCLUDE.contains(attDescription.name)) continue;
 
-                //if (!attDescription.defined_in.contains(interfaceName)) continue;
+                if (!attDescription.defined_in.contains(interfaceName)) continue;
 
                 JSONObject monitorConfig = new JSONObject();
                 String monitorType = parseMagnitudeType(attDescription.type);
@@ -97,16 +98,12 @@ public class InterfaceRepositoryToJson {
                     monitorConfig.put("values", enumsName);
                     monitorConfig.put("type", monitorType);
                 } else {
-                    if (getTypeMap().containsKey(typeCode)) {
-                        monitorConfig.put("type", getTypeMap().get(typeCode));
-                    } else {
-                        monitorConfig.put("type", monitorType);
-                    }
+                    monitorConfig.put("type", getTypeMap().getOrDefault(typeCode, monitorType));
                 }
 
                 monitors.put(attDescription.name, monitorConfig);
+
             } catch (Exception e) {
-                System.out.println("\t\tError while processing attribute " + attDescription.name);
                 e.printStackTrace();
             }
         }
@@ -157,13 +154,11 @@ public class InterfaceRepositoryToJson {
         }
 
         try {
-            String ir = "users/" + System.getenv("USER")  + "/InterfaceRepository";
+            String ir = "users/gcsop/InterfaceRepository";
             String ns = "corbaname::" + System.getenv("NS_HOST")  + ":" + System.getenv("NS_PORT");
             CORBAServices.init(ns, ir);
 
             new InterfaceRepositoryToJson().start();
-
-            System.exit(0);
 
         }catch(NotAvailable ex){
             Output.error("Cannot initialiazed CORBA Services. Make sure environment" +
